@@ -66,33 +66,59 @@ char **dsh_split_line(*char line)
     char *token;
 
     // Check if memory was allocated correctly
-     if (!tokens) {
-         fprintf(stderr, "dsh: allocation error\n");
-	 exit(EXIT_FAILURE);
-     }
+    if (!tokens) {
+        fprintf(stderr, "dsh: allocation error\n");
+	exit(EXIT_FAILURE);
+    }
 
-     token = strtok(line, DSH_TOK_DELIM);
-     while (token != NULL) {
-         tokens[position++] = token;
+    token = strtok(line, DSH_TOK_DELIM);
+    while (token != NULL) {
+        tokens[position++] = token;
 
-         // Check if line overflow's default buffer
-	 if (position >= bufsize) {
-	     bufsize += DSH_TOK_BUFSIZE;
-	     tokens = realloc(tokens, bufsize, sizeof(char*));
+        // Check if line overflow's default buffer
+	if (position >= bufsize) {
+	    bufsize += DSH_TOK_BUFSIZE;
+	    tokens = realloc(tokens, bufsize, sizeof(char*));
 
-	     // Check for memory reallocation error
-	     if (!tokens) {
-                 fprintf(stderr, "dsh: allocation error\n");
-		 exit(EXIT_FAILURE);
-	     }
-	 }
+	    // Check for memory reallocation error
+	    if (!tokens) {
+                fprintf(stderr, "dsh: allocation error\n");
+		exit(EXIT_FAILURE);
+	    }
+	}
 
-	 // Get next token
-         token = strtok(NULL, DSH_TOK_DELIM);
-     }
+	// Get next token
+        token = strtok(NULL, DSH_TOK_DELIM);
+    }
 
-     tokens[position] = NULL;
-     return tokens;
+    tokens[position] = NULL;
+    return tokens;
+}
+
+int dsh_launch(char **args)
+{
+    pid_t pid, wpid;
+    int status;
+
+    pid = fork();
+    if (pid == 0) {
+        // Child process
+        if (execvp(args[0], args) == -1) {
+	    perror("dsh");
+	}
+
+	exit(EXIT_FAILURE);
+    } else if (pid < 0) {
+        // Error forking
+        perror("dsh");
+    } else {
+        // Parent process
+        do {
+	    wpid = waitpid(pid, &status, WUNTRACED);
+        } while(!WIFEXITED(status) && !WIFSIGNALED(status));
+    }
+
+    return 1;
 }
 
 int exec_command(char **args)
