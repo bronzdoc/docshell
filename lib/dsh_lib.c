@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "lib/dsh.h"
+#include "dsh.h"
 
 void dsh_loop()
 {
@@ -9,10 +9,10 @@ void dsh_loop()
     int status;
 
     do {
-        prinf("> ");
+        printf("> ");
         line = dsh_read_line();
         args = dsh_split_line(line);
-        status dsh_exec(args);
+        status = dsh_execute(args);
 
         free(line);
         free(args);
@@ -33,8 +33,8 @@ char *dsh_read_line()
         character = getchar();
 
         // If we hit EOF, replace it with a null character and return.
-        if (character == EOF || character = '\n') {
-            buffert[position] = '\0';
+        if (character == EOF || character == '\n') {
+            buffer[position] = '\0';
             return buffer;
 
         // Fill buffer with user input
@@ -45,7 +45,7 @@ char *dsh_read_line()
     }
 
     // Check if user input overflow's default buffer
-    if (positon >= bufsize) {
+    if (position >= bufsize) {
         bufsize += DSH_DF_BUFSIZE;
 
         //reallocate a bigger buffer in memory
@@ -59,7 +59,7 @@ char *dsh_read_line()
     }
 }
 
-char **dsh_split_line(*char line)
+char **dsh_split_line(char *line)
 {
     int bufsize = DSH_TOK_BUFSIZE, position = 0;
     char **tokens = malloc(bufsize * sizeof(char*));
@@ -78,7 +78,7 @@ char **dsh_split_line(*char line)
         // Check if line overflow's default buffer
 	if (position >= bufsize) {
 	    bufsize += DSH_TOK_BUFSIZE;
-	    tokens = realloc(tokens, bufsize, sizeof(char*));
+	    tokens = realloc(tokens, bufsize * sizeof(char*));
 
 	    // Check for memory reallocation error
 	    if (!tokens) {
@@ -103,23 +103,88 @@ int dsh_launch(char **args)
     pid = fork();
     if (pid == 0) {
         // Child process
-        if (execvp(args[0], args) == -1) {
+        if (execvp(args[0], args) == -1)
 	    perror("dsh");
-	}
 
 	exit(EXIT_FAILURE);
+
     } else if (pid < 0) {
         // Error forking
         perror("dsh");
     } else {
         // Parent process
         do {
-	    wpid = waitpid(pid, &status, WUNTRACED);
+	  wpid = waitpid(pid, &status, WUNTRACED);
         } while(!WIFEXITED(status) && !WIFSIGNALED(status));
     }
 
     return 1;
 }
 
-int exec_command(char **args)
+// List of builint commands
+// This is an array of pointers to char (strings)
+char *builtins_str[] = {
+    "cd",
+    "help",
+    "exit"
+};
+
+// This is an array of pointers to functions accepting char** as argumnet returning an int
+int (*builtin_func[]) (char **) = {
+    &dsh_cd,
+    &dsh_help,
+    &dsh_exit
+};
+
+// Number of builtins
+int dsh_num_builtins()
+{
+    return sizeof(builtins_str) / sizeof(char *);
+}
+
+// Builtin to change directory
+int dsh_cd(char **args)
+{
+    if (args[1] == NULL)
+        fprintf(stderr, "dsh: cd is expceting argument to \"cd\"\n");
+    else {
+        if (chdir(args) != 0)
+            perror("dsh");
+    }
+}
+
+// Print the list of builtins of the shell
+int dsh_help()
+{
+    int i;
+    printf("Luis Sagastume DSH: Doc Shell\n");
+    printf("Builints available:\n");
+
+    for (i = 0; i < dsh_num_builtins(); i++)
+        printf(" %s\n", builtins_str[i]);
+}
+
+int dsh_execute(char **args)
+{
+    int i;
+
+    if (args[0] == NULL)
+        // Check if empry command was entered
+	return 1;
+
+    for (i = 0; i < dsh_num_builtins(); i++) {
+        if (strcmp(args[0], builtins_str[i]) == 0)
+	    // Call the builtin function
+	    return (*builtin_func[i])(args);
+    }
+}
+
+void run_shell()
+{
+  dsh_loop();
+}
+int dsh_exit()
+{
+    return 0;
+}
 
