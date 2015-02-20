@@ -5,7 +5,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "dsh.h"
+#include "lib/dsh.h"
 
 int main(int argc, char **argv)
 {
